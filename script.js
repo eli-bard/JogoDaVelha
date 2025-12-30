@@ -1,215 +1,163 @@
-const cells = document.querySelectorAll('.cell');
-const statusDisplay = document.getElementById('status');
+// --- Elementos do DOM ---
+const boardElement = document.getElementById('board');
+const statusElement = document.getElementById('status');
 const resetButton = document.getElementById('resetButton');
 
-let board = ["", "", "", "", "", "", "", "", ""]; // Representa o estado do tabuleiro
-let currentPlayer = "X";
-let gameActive = true;
-let placedPiecesCount = { "X": 0, "O": 0 }; // Contador de peças colocadas por jogador
-let phase = "placement"; // 'placement' ou 'movement'
-let selectedPiece = null; // Para a fase de movimentação: [rowIndex, colIndex] da peça selecionada
+// --- Variáveis do Jogo ---
+let board = [];
+const players = ['I', 'X', 'O'];
+let currentPlayerIndex = 0;
+let playerPieceHistory = {
+    'I': [], // Array que funciona como deque: [mais_antiga, ..., mais_recente]
+    'X': [],
+    'O': []
+};
+const MAX_PIECES_PER_PLAYER = 4;
+const WIN_CONDITION_LENGTH = 3;
+let gameOver = false;
+let winningCells = []; // Para armazenar as células vencedoras para destaque
 
-// Combinações de vitória para um tabuleiro 3x3
-const winningConditions = [
-    [0, 1, 2], [3, 4, 5], [6, 7, 8], // Linhas
-    [0, 3, 6], [1, 4, 7], [2, 5, 8], // Colunas
-    [0, 4, 8], [2, 4, 6]             // Diagonais
-];
+// --- Funções do Jogo ---
 
-// Mapeamento de índice 1D para coordenadas 2D (linha, coluna)
-function getCoords(index) {
-    const row = Math.floor(index / 3);
-    const col = index % 3;
-    return { row, col };
+function initGame() {
+    board = Array(4).fill(null).map(() => Array(4).fill(' '));
+    currentPlayerIndex = 0;
+    playerPieceHistory = {
+        'I': [],
+        'X': [],
+        'O': []
+    };
+    gameOver = false;
+    winningCells = [];
+    renderBoard();
+    updateStatus(`Vez do jogador ${getCurrentPlayer()}`);
 }
 
-// Mapeamento de coordenadas 2D para índice 1D
-function getIndex(row, col) {
-    return row * 3 + col;
+function getCurrentPlayer() {
+    return players[currentPlayerIndex];
 }
 
-// Atualiza a mensagem de status do jogo
 function updateStatus(message) {
-    statusDisplay.textContent = message;
+    statusElement.textContent = message;
 }
 
-// Reinicia o jogo para o estado inicial
-function resetGame() {
-    board = ["", "", "", "", "", "", "", "", ""];
-    currentPlayer = "X";
-    gameActive = true;
-    placedPiecesCount = { "X": 0, "O": 0 };
-    phase = "placement";
-    selectedPiece = null;
+function renderBoard() {
+    boardElement.innerHTML = ''; // Limpa o tabuleiro anterior
+    board.forEach((row, rowIndex) => {
+        row.forEach((cellValue, colIndex) => {
+            const cell = document.createElement('div');
+            cell.classList.add('cell');
+            cell.dataset.row = rowIndex;
+            cell.dataset.col = colIndex;
+            cell.textContent = cellValue !== ' ' ? cellValue : '';
 
-    cells.forEach(cell => {
-        cell.textContent = "";
-        cell.classList.remove('X', 'O', 'selected');
+            if (cellValue !== ' ') {
+                cell.classList.add(`occupied-${cellValue}`);
+            }
+            if (winningCells.some(wc => wc.row === rowIndex && wc.col === colIndex)) {
+                cell.classList.add('winning-cell');
+            }
+
+            cell.addEventListener('click', handleCellClick);
+            boardElement.appendChild(cell);
+        });
     });
-
-    updateStatus(`Vez do Jogador ${currentPlayer}`);
 }
 
-// Verifica se há um vencedor
-function checkWinner() {
-    let roundWon = false;
-    for (let i = 0; i < winningConditions.length; i++) {
-        const winCondition = winningConditions[i];
-        let a = board[winCondition[0]];
-        let b = board[winCondition[1]];
-        let c = board[winCondition[2]];
+function handleCellClick(event) {
+    if (gameOver) return;
 
-        if (a === "" || b === "" || c === "") {
-            continue;
-        }
-        if (a === b && b === c) {
-            roundWon = true;
-            break;
-        }
-    }
+    const row = parseInt(event.target.dataset.row);
+    const col = parseInt(event.target.dataset.col);
 
-    if (roundWon) {
-        updateStatus(`Jogador ${currentPlayer} Venceu! 🎉`);
-        gameActive = false;
-        return true;
-    }
-
-    // Verifica empate apenas se ainda estiver na fase de colocação e todas as células forem preenchidas
-    if (phase === 'placement' && !board.includes("")) {
-         // Na fase de colocação, se todas as células estiverem cheias e não houver vencedor, é empate (cenário menos provável com 3 peças/jogador)
-         // Mas com a regra de 3 peças, o jogo geralmente vai para a fase de movimentação.
-    }
-    // Para a fase de movimentação, o empate é mais complexo de definir, pode ser por falta de movimentos válidos ou ciclo de repetição.
-    return false;
-}
-
-// Alterna o jogador atual
-function changePlayer() {
-    currentPlayer = currentPlayer === "X" ? "O" : "X";
-    if (gameActive) {
-        updateStatus(`Vez do Jogador ${currentPlayer}`);
-    }
-}
-
-// Lógica principal para lidar com o clique em uma célula
-function handleCellClick(clickedCellEvent) {
-    const clickedCell = clickedCellEvent.target;
-    const clickedCellIndex = parseInt(clickedCell.dataset.cellIndex);
-
-    if (!gameActive) {
+    if (board[row][col] !== ' ') {
+        updateStatus("Essa posição já está ocupada! Tente novamente.");
         return;
     }
 
-    if (phase === "placement") {
-        if (board[clickedCellIndex] !== "") { // Célula já ocupada
-            updateStatus("Célula já ocupada! Escolha outra.");
-            return;
-        }
+    makeMove(row, col);
+}
 
-        if (placedPiecesCount[currentPlayer] < 3) {
-            board[clickedCellIndex] = currentPlayer;
-            clickedCell.textContent = currentPlayer;
-            clickedCell.classList.add(currentPlayer);
-            placedPiecesCount[currentPlayer]++;
+function makeMove(row, col) {
+    const currentPlayer = getCurrentPlayer();
+    const history = playerPieceHistory[currentPlayer];
 
-            if (checkWinner()) {
-                return;
-            }
-
-            // Verifica se ambos os jogadores colocaram suas 3 peças
-            if (placedPiecesCount["X"] === 3 && placedPiecesCount["O"] === 3) {
-                phase = "movement";
-                updateStatus(`Todas as peças foram colocadas! Vez do Jogador ${currentPlayer} - MOVIMENTE uma peça.`);
-            } else {
-                changePlayer();
-            }
-        } else {
-            // Este else só ocorreria se o contador de peças já atingiu 3 mas o fase ainda é "placement".
-            // Na lógica atual, isso indica que o jogo deveria estar na fase de movimento.
-            // Para robustez, podemos informar que o jogador deve mover uma peça.
-            updateStatus(`Você já colocou suas 3 peças. Agora você deve MOVER uma delas.`);
-        }
-
-    } else if (phase === "movement") {
-        // --- LÓGICA DA FASE DE MOVIMENTAÇÃO (A SER IMPLEMENTADA) ---
-
-        // 1. Se nenhuma peça estiver selecionada e o jogador clicou em UMA DE SUAS PRÓPRIAS PEÇAS:
-        if (selectedPiece === null && board[clickedCellIndex] === currentPlayer) {
-            // Seleciona a peça
-            selectedPiece = getCoords(clickedCellIndex);
-            clickedCell.classList.add('selected');
-            updateStatus(`Vez do Jogador ${currentPlayer}. Peça selecionada em (${selectedPiece.row},${selectedPiece.col}). Agora clique em um quadrado vazio ADJACENTE para mover.`);
-            return; // Espera o segundo clique para mover
-        }
-
-        // 2. Se uma peça ESTIVER selecionada e o jogador clicou em um QUADRADO VAZIO:
-        if (selectedPiece !== null && board[clickedCellIndex] === "") {
-            const targetCoords = getCoords(clickedCellIndex);
-            // Verifica se o movimento é adjacente
-            if (isAdjacent(selectedPiece, targetCoords)) {
-                // Remove a peça da posição antiga
-                const oldIndex = getIndex(selectedPiece.row, selectedPiece.col);
-                board[oldIndex] = "";
-                cells[oldIndex].textContent = "";
-                cells[oldIndex].classList.remove(currentPlayer, 'selected');
-
-                // Move a peça para a nova posição
-                board[clickedCellIndex] = currentPlayer;
-                clickedCell.textContent = currentPlayer;
-                clickedCell.classList.add(currentPlayer);
-
-                // Limpa a seleção
-                selectedPiece = null;
-
-                if (checkWinner()) {
-                    return;
-                }
-                changePlayer();
-            } else {
-                updateStatus(`Movimento inválido! A célula (${targetCoords.row},${targetCoords.col}) não é adjacente à peça selecionada. Escolha um quadrado adjacente vazio.`);
-            }
-            return;
-        }
-
-        // 3. Se uma peça ESTIVER selecionada e o jogador clicou em OUTRA DE SUAS PRÓPRIAS PEÇAS:
-        if (selectedPiece !== null && board[clickedCellIndex] === currentPlayer) {
-            // Desseleciona a peça anterior
-            const oldSelectedCellIndex = getIndex(selectedPiece.row, selectedPiece.col);
-            cells[oldSelectedCellIndex].classList.remove('selected');
-
-            // Seleciona a nova peça
-            selectedPiece = getCoords(clickedCellIndex);
-            clickedCell.classList.add('selected');
-            updateStatus(`Vez do Jogador ${currentPlayer}. Nova peça selecionada em (${selectedPiece.row},${selectedPiece.col}). Agora clique em um quadrado vazio ADJACENTE para mover.`);
-            return;
-        }
-
-        // Se o jogador clicou em uma célula ocupada que não é a sua peça selecionada
-        if (selectedPiece !== null && board[clickedCellIndex] !== "") {
-            updateStatus("Você não pode mover para uma célula ocupada. Escolha um quadrado vazio adjacente.");
-            return;
-        }
-
-        // Se o jogador clicou em uma célula que não é sua peça, e nenhuma peça está selecionada
-        if (selectedPiece === null && board[clickedCellIndex] !== currentPlayer && board[clickedCellIndex] !== "") {
-            updateStatus("Essa não é sua peça! Escolha uma de suas próprias peças para mover.");
-            return;
+    // 1. Gerenciar o limite de peças (descartar a mais antiga se necessário)
+    if (history.length >= MAX_PIECES_PER_PLAYER) {
+        const oldestPiece = history.shift(); // Remove a peça mais antiga
+        if (oldestPiece) {
+            board[oldestPiece.row][oldestPiece.col] = ' '; // Limpa essa posição no tabuleiro
         }
     }
+
+    // 2. Colocar a nova peça
+    board[row][col] = currentPlayer;
+    history.push({ row, col }); // Adiciona a nova peça ao histórico
+
+    renderBoard(); // Atualiza a interface
+
+    // 3. Verificar condição de vitória
+    if (checkWin(currentPlayer)) {
+        gameOver = true;
+        updateStatus(`🎉 PARABÉNS! O jogador ${currentPlayer} venceu! 🎉`);
+        highlightWinningCells();
+        return;
+    }
+
+    // 4. Trocar para o próximo jogador
+    currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+    updateStatus(`Vez do jogador ${getCurrentPlayer()}`);
 }
 
-// Função auxiliar para verificar se duas células são adjacentes (horizontal, vertical, diagonal)
-function isAdjacent(coords1, coords2) {
-    const dr = Math.abs(coords1.row - coords2.row);
-    const dc = Math.abs(coords1.col - coords2.col);
-    // Adjacente se a diferença em linha e coluna for 0 ou 1, e não for a mesma célula
-    return (dr <= 1 && dc <= 1) && (dr !== 0 || dc !== 0);
+function checkWin(player) {
+    // Helper para verificar 3 em linha
+    const checkLine = (r1, c1, r2, c2, r3, c3) => {
+        if (board[r1][c1] === player &&
+            board[r2][c2] === player &&
+            board[r3][c3] === player) {
+            winningCells = [{ row: r1, col: c1 }, { row: r2, col: c2 }, { row: r3, col: c3 }];
+            return true;
+        }
+        return false;
+    };
+
+    // Verificar linhas
+    for (let r = 0; r < 4; r++) {
+        for (let c = 0; c <= 4 - WIN_CONDITION_LENGTH; c++) {
+            if (checkLine(r, c, r, c + 1, r, c + 2)) return true;
+        }
+    }
+
+    // Verificar colunas
+    for (let c = 0; c < 4; c++) {
+        for (let r = 0; r <= 4 - WIN_CONDITION_LENGTH; r++) {
+            if (checkLine(r, c, r + 1, c, r + 2, c)) return true;
+        }
+    }
+
+    // Verificar diagonais (top-left to bottom-right)
+    for (let r = 0; r <= 4 - WIN_CONDITION_LENGTH; r++) {
+        for (let c = 0; c <= 4 - WIN_CONDITION_LENGTH; c++) {
+            if (checkLine(r, c, r + 1, c + 1, r + 2, c + 2)) return true;
+        }
+    }
+
+    // Verificar anti-diagonais (top-right to bottom-left)
+    for (let r = 0; r <= 4 - WIN_CONDITION_LENGTH; r++) {
+        for (let c = WIN_CONDITION_LENGTH - 1; c < 4; c++) { // c começa de 2 (0-indexado)
+            if (checkLine(r, c, r + 1, c - 1, r + 2, c - 2)) return true;
+        }
+    }
+
+    return false;
 }
 
+function highlightWinningCells() {
+    renderBoard(); // Redesenha o tabuleiro para aplicar a classe 'winning-cell'
+}
 
-// Adiciona os event listeners
-cells.forEach(cell => cell.addEventListener('click', handleCellClick));
-resetButton.addEventListener('click', resetGame);
+// --- Event Listeners ---
+resetButton.addEventListener('click', initGame);
 
-// Inicializa o jogo
-resetGame();
+// --- Iniciar o Jogo ---
+initGame();

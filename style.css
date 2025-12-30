@@ -1,78 +1,86 @@
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Arial', sans-serif;
     display: flex;
-    flex-direction: column;
-    align-items: center;
     justify-content: center;
+    align-items: center;
     min-height: 100vh;
+    background-color: #282c34;
+    color: #e0e0e0;
     margin: 0;
-    background-color: #f0f0f0;
-    color: #333;
+    flex-direction: column;
+}
+
+.container {
+    background-color: #3a404a;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    text-align: center;
 }
 
 h1 {
-    color: #4CAF50;
+    color: #61dafb;
     margin-bottom: 20px;
 }
 
 #status {
-    margin-bottom: 20px;
     font-size: 1.2em;
-    font-weight: bold;
+    margin-bottom: 20px;
+    color: #f0f0f0;
 }
 
-.board {
+.board-grid {
     display: grid;
-    grid-template-columns: repeat(3, 100px);
-    grid-template-rows: repeat(3, 100px);
+    grid-template-columns: repeat(4, 80px); /* 4 colunas de 80px */
+    grid-template-rows: repeat(4, 80px);   /* 4 linhas de 80px */
     gap: 5px;
-    background-color: #333;
-    border-radius: 5px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    border: 2px solid #61dafb;
+    width: fit-content;
+    margin: 0 auto 20px auto;
 }
 
 .cell {
-    width: 100px;
-    height: 100px;
-    background-color: #fff;
+    width: 80px;
+    height: 80px;
+    background-color: #495057;
+    border: 1px solid #6c757d;
     display: flex;
-    align-items: center;
     justify-content: center;
-    font-size: 3em;
+    align-items: center;
+    font-size: 2.5em;
     font-weight: bold;
     cursor: pointer;
     transition: background-color 0.2s ease-in-out;
-    border-radius: 3px;
+    user-select: none; /* Previne seleção de texto */
 }
 
 .cell:hover {
-    background-color: #e0e0e0;
+    background-color: #5a6268;
 }
 
-.cell.X {
-    color: #E91E63; /* Vermelho */
+.cell.occupied-I { color: #ff6347; } /* Tomate */
+.cell.occupied-X { color: #66cc66; } /* Verde vibrante */
+.cell.occupied-O { color: #ffcc00; } /* Amarelo */
+
+.cell.winning-cell {
+    background-color: #28a745; /* Verde escuro para células vencedoras */
+    animation: pulse 1s infinite alternate;
 }
 
-.cell.O {
-    color: #2196F3; /* Azul */
-}
-
-/* Estilo para peça selecionada na fase de movimentação */
-.cell.selected {
-    background-color: #FFC107; /* Amarelo */
-    border: 2px solid #FFA000;
+@keyframes pulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.05); }
 }
 
 #resetButton {
-    margin-top: 30px;
-    padding: 10px 20px;
-    font-size: 1em;
-    cursor: pointer;
     background-color: #007bff;
     color: white;
     border: none;
+    padding: 10px 20px;
+    font-size: 1em;
     border-radius: 5px;
-    transition: background-color 0.2s;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
 }
 
 #resetButton:hover {
