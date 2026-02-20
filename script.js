@@ -5,12 +5,12 @@ const resetButton = document.getElementById('resetButton');
 
 // --- Variáveis do Jogo ---
 let board = [];
-const players = ['🔴', '🔵', '🟢']; // Usando símbolos mais visíveis
+const players = ['🔴', '🔵', '⚪']; // Usando símbolos mais visíveis
 let currentPlayerIndex = 0;
 let playerPieceHistory = {
     '🔴': [], // Array que funciona como deque: [mais_antiga, ..., mais_recente]
     '🔵': [],
-    '🟢': []
+    '⚪': []
 };
 const MAX_PIECES_PER_PLAYER = 4;
 const WIN_CONDITION_LENGTH = 4; // Alterado para 4
@@ -26,7 +26,7 @@ function initGame() {
     playerPieceHistory = {
         '🔴': [],
         '🔵': [],
-        '🟢': []
+        '⚪': []
     };
     gameOver = false;
     winningCells = [];
