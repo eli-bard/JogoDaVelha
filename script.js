@@ -5,27 +5,28 @@ const resetButton = document.getElementById('resetButton');
 
 // --- Variáveis do Jogo ---
 let board = [];
-const players = ['I', 'X', 'O'];
+const players = ['🔴', '🔵', '🟢']; // Usando símbolos mais visíveis
 let currentPlayerIndex = 0;
 let playerPieceHistory = {
-    'I': [], // Array que funciona como deque: [mais_antiga, ..., mais_recente]
-    'X': [],
-    'O': []
+    '🔴': [], // Array que funciona como deque: [mais_antiga, ..., mais_recente]
+    '🔵': [],
+    '🟢': []
 };
 const MAX_PIECES_PER_PLAYER = 4;
-const WIN_CONDITION_LENGTH = 3;
+const WIN_CONDITION_LENGTH = 4; // Alterado para 4
+const BOARD_SIZE = 5; // Tabuleiro 5x5 para melhor jogabilidade com 4 peças
 let gameOver = false;
 let winningCells = []; // Para armazenar as células vencedoras para destaque
 
 // --- Funções do Jogo ---
 
 function initGame() {
-    board = Array(4).fill(null).map(() => Array(4).fill(' '));
+    board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(' '));
     currentPlayerIndex = 0;
     playerPieceHistory = {
-        'I': [],
-        'X': [],
-        'O': []
+        '🔴': [],
+        '🔵': [],
+        '🟢': []
     };
     gameOver = false;
     winningCells = [];
@@ -43,6 +44,8 @@ function updateStatus(message) {
 
 function renderBoard() {
     boardElement.innerHTML = ''; // Limpa o tabuleiro anterior
+    boardElement.style.gridTemplateColumns = `repeat(${BOARD_SIZE}, 1fr)`;
+    
     board.forEach((row, rowIndex) => {
         row.forEach((cellValue, colIndex) => {
             const cell = document.createElement('div');
@@ -54,6 +57,8 @@ function renderBoard() {
             if (cellValue !== ' ') {
                 cell.classList.add(`occupied-${cellValue}`);
             }
+            
+            // Verifica se esta célula faz parte das células vencedoras
             if (winningCells.some(wc => wc.row === rowIndex && wc.col === colIndex)) {
                 cell.classList.add('winning-cell');
             }
@@ -104,48 +109,76 @@ function makeMove(row, col) {
         return;
     }
 
-    // 4. Trocar para o próximo jogador
+    // 4. Verificar empate (apenas se todas as posições estiverem ocupadas)
+    const isBoardFull = board.every(row => row.every(cell => cell !== ' '));
+    if (isBoardFull) {
+        gameOver = true;
+        updateStatus("🤝 Empate! O tabuleiro está cheio.");
+        return;
+    }
+
+    // 5. Trocar para o próximo jogador
     currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
     updateStatus(`Vez do jogador ${getCurrentPlayer()}`);
 }
 
 function checkWin(player) {
-    // Helper para verificar 3 em linha
-    const checkLine = (r1, c1, r2, c2, r3, c3) => {
-        if (board[r1][c1] === player &&
-            board[r2][c2] === player &&
-            board[r3][c3] === player) {
-            winningCells = [{ row: r1, col: c1 }, { row: r2, col: c2 }, { row: r3, col: c3 }];
+    winningCells = []; // Reset das células vencedoras
+    
+    // Helper para verificar 4 em linha
+    const checkLine = (positions) => {
+        if (positions.every(pos => 
+            pos.row >= 0 && pos.row < BOARD_SIZE && 
+            pos.col >= 0 && pos.col < BOARD_SIZE && 
+            board[pos.row][pos.col] === player
+        )) {
+            winningCells = positions;
             return true;
         }
         return false;
     };
 
-    // Verificar linhas
-    for (let r = 0; r < 4; r++) {
-        for (let c = 0; c <= 4 - WIN_CONDITION_LENGTH; c++) {
-            if (checkLine(r, c, r, c + 1, r, c + 2)) return true;
+    // Verificar linhas horizontais
+    for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c <= BOARD_SIZE - WIN_CONDITION_LENGTH; c++) {
+            const positions = [];
+            for (let i = 0; i < WIN_CONDITION_LENGTH; i++) {
+                positions.push({ row: r, col: c + i });
+            }
+            if (checkLine(positions)) return true;
         }
     }
 
-    // Verificar colunas
-    for (let c = 0; c < 4; c++) {
-        for (let r = 0; r <= 4 - WIN_CONDITION_LENGTH; r++) {
-            if (checkLine(r, c, r + 1, c, r + 2, c)) return true;
+    // Verificar linhas verticais
+    for (let c = 0; c < BOARD_SIZE; c++) {
+        for (let r = 0; r <= BOARD_SIZE - WIN_CONDITION_LENGTH; r++) {
+            const positions = [];
+            for (let i = 0; i < WIN_CONDITION_LENGTH; i++) {
+                positions.push({ row: r + i, col: c });
+            }
+            if (checkLine(positions)) return true;
         }
     }
 
     // Verificar diagonais (top-left to bottom-right)
-    for (let r = 0; r <= 4 - WIN_CONDITION_LENGTH; r++) {
-        for (let c = 0; c <= 4 - WIN_CONDITION_LENGTH; c++) {
-            if (checkLine(r, c, r + 1, c + 1, r + 2, c + 2)) return true;
+    for (let r = 0; r <= BOARD_SIZE - WIN_CONDITION_LENGTH; r++) {
+        for (let c = 0; c <= BOARD_SIZE - WIN_CONDITION_LENGTH; c++) {
+            const positions = [];
+            for (let i = 0; i < WIN_CONDITION_LENGTH; i++) {
+                positions.push({ row: r + i, col: c + i });
+            }
+            if (checkLine(positions)) return true;
         }
     }
 
     // Verificar anti-diagonais (top-right to bottom-left)
-    for (let r = 0; r <= 4 - WIN_CONDITION_LENGTH; r++) {
-        for (let c = WIN_CONDITION_LENGTH - 1; c < 4; c++) { // c começa de 2 (0-indexado)
-            if (checkLine(r, c, r + 1, c - 1, r + 2, c - 2)) return true;
+    for (let r = 0; r <= BOARD_SIZE - WIN_CONDITION_LENGTH; r++) {
+        for (let c = WIN_CONDITION_LENGTH - 1; c < BOARD_SIZE; c++) {
+            const positions = [];
+            for (let i = 0; i < WIN_CONDITION_LENGTH; i++) {
+                positions.push({ row: r + i, col: c - i });
+            }
+            if (checkLine(positions)) return true;
         }
     }
 
